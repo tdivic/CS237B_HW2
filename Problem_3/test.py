@@ -12,12 +12,11 @@ import tensorflow as tf1
 import tensorflow.compat.v2 as tf
 tf1.compat.v1.enable_eager_execution()
 
-from model import build_model, loss, AccelerationLaw
+from model import build_model, build_baseline_model, loss, AccelerationLaw
 import utils
 
 SIZE_BATCH = 32
-PATH_MODEL = 'trained_models/trained.h5'
-DIR_CHECKPOINT = 'trained_models'
+DIR_CHECKPOINT = 'trained_models/'
 DIR_DATASET = 'phys101/scenarios/ramp'
 
 def load_video(path_video):
@@ -41,16 +40,21 @@ def show_image(frames, idx_frame, path_video, keypoints, params):
     img = frames[idx_frame].copy()
     img = cv.putText(img, "{}: {}/{}".format(experiment, idx_frame+1, len(frames)),
                      (50,70), cv.FONT_HERSHEY_DUPLEX, 1, color, 2)
-    img = cv.putText(img, "a_pred: {:.3f}, a_groundtruth: {:.3f}, mu_pred: {:.3f}".format(params['a_pred'], params['a_groundtruth'], params['mu_pred']),
-                     (50,100), cv.FONT_HERSHEY_DUPLEX, 0.5, color, 1)
+    if 'mu_pred' in params:
+        img = cv.putText(img, "a_pred: {:.3f}, a_groundtruth: {:.3f}, mu_pred: {:.3f}".format(params['a_pred'], params['a_groundtruth'], params['mu_pred']),
+                         (50,100), cv.FONT_HERSHEY_DUPLEX, 0.5, color, 1)
+    else:
+        img = cv.putText(img, "a_pred: {:.3f}, a_groundtruth: {:.3f}".format(params['a_pred'], params['a_groundtruth']),
+                         (50,100), cv.FONT_HERSHEY_DUPLEX, 0.5, color, 1)
     img = cv.putText(img, "mu_class", (750, 30), cv.FONT_HERSHEY_DUPLEX, 0.5, color, 1)
     img = cv.putText(img, "p_class", (850, 30), cv.FONT_HERSHEY_DUPLEX, 0.5, color, 1)
-    for i, (mu, p) in enumerate(zip(params['mu_class'].tolist(), params['p_class'].tolist())):
-        img = cv.putText(img, "{:.3f}".format(mu),
-                         (750,55 + 15*i), cv.FONT_HERSHEY_DUPLEX, 0.5, color, 1)
-        img = cv.putText(img, "{:.3f}".format(p),
-                         (850,55 + 15*i), cv.FONT_HERSHEY_DUPLEX, 0.5, color, 1)
-        img = cv.putText(img, "prev/next video: w/s, prev/next frame: a/d, quit: q", (50, 500), cv.FONT_HERSHEY_DUPLEX, 0.5, (255,0,0), 1)
+    if 'p_class' in params:
+        for i, (mu, p) in enumerate(zip(params['mu_class'].tolist(), params['p_class'].tolist())):
+            img = cv.putText(img, "{:.3f}".format(mu),
+                             (750,55 + 15*i), cv.FONT_HERSHEY_DUPLEX, 0.5, color, 1)
+            img = cv.putText(img, "{:.3f}".format(p),
+                             (850,55 + 15*i), cv.FONT_HERSHEY_DUPLEX, 0.5, color, 1)
+    img = cv.putText(img, "prev/next video: w/s, prev/next frame: a/d, quit: q", (50, 500), cv.FONT_HERSHEY_DUPLEX, 0.5, (255,0,0), 1)
     colors = [(0,255,0), (255,0,255)]
 
     m = re.search(r'([12]0)_0[12]', path_video)
@@ -78,7 +82,6 @@ def handle_video(frames, path_video, keypoints, params):
             idx_frame += 1
         elif key == ord('x'):
             keypoints.clear()
-        # elif key in (ord('w'), ord('s'), ord('q')) and len(keypoints) != 1:  # up, down, q
         elif key in (ord('w'), ord('s'), ord('q')):  # up, down, q
             break
     return key
@@ -95,11 +98,12 @@ def handle_dataset(video_paths, keypoints, params):
         kp = keypoints[path_video]
         p = {
             'a_pred': params['a_pred'][idx_video][0],
-            'a_groundtruth': params['a_groundtruth'][idx_video],
-            'mu_pred': params['mu_pred'][idx_video][0],
-            'mu_class': params['mu_class'],
-            'p_class': params['p_class'][idx_video]
+            'a_groundtruth': params['a_groundtruth'][idx_video]
         }
+        if 'mu_class' in params:
+            p['mu_pred'] = params['mu_pred'][idx_video][0]
+            p['mu_class'] = params['mu_class']
+            p['p_class'] = params['p_class'][idx_video]
 
         key = handle_video(frames, path_video, kp, p)
 
@@ -151,6 +155,10 @@ def load_keypoints(dir_dataset, ramp_surface):
     return keypoints_dict
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--baseline', dest='baseline', action='store_true')
+    args = parser.parse_args()
+
     # Load dataset
     ramp_surface = 1  # Choose ramp surface in experiments (1 or 2)
     _, test_dataset = utils.load_dataset(DIR_DATASET,
@@ -159,49 +167,46 @@ if __name__ == '__main__':
                                          return_filenames=True)
     video_paths = [p.decode('utf-8') for p in np.concatenate([d[0][2] for d in test_dataset]).tolist()]
     a_groundtruth = np.concatenate([d[1] for d in test_dataset])
-    # for input_set, output_set in test_dataset:
-    #     imgs, ths, paths = input_set
-    #     imgs = imgs.numpy()
-    #     paths = paths.numpy()
-    #     for img, path in zip(imgs, paths):
-    #         imgN = np.zeros_like(img)
-    #         imgN = cv.normalize(img, imgN, alpha=0, beta=255, norm_type=cv.NORM_MINMAX, dtype=cv.CV_8UC3)
-    #         cv.imwrite('debug/{}.jpg'.format(path.decode('utf-8').replace('/','-')), imgN)
-    print(len(video_paths))
 
     # Build model
-    model = build_model()
-    # model.load_weights(tf.train.latest_checkpoint(DIR_CHECKPOINT))
-    model = tf.keras.models.load_model(PATH_MODEL, custom_objects={'AccelerationLaw': AccelerationLaw, 'loss': loss})
+    if args.baseline:
+        model = tf.keras.models.load_model(DIR_CHECKPOINT + 'trained_baseline.h5', custom_objects={'loss': loss})
+        a_pred = model.predict(test_dataset)
+        parameters = {
+            'a_pred': np.maximum(0., a_pred),
+            'a_groundtruth': a_groundtruth
+        }
+    else:
+        model = tf.keras.models.load_model(DIR_CHECKPOINT + 'trained.h5', custom_objects={'AccelerationLaw': AccelerationLaw, 'loss': loss})
+        # model.load_weights(tf.train.latest_checkpoint(DIR_CHECKPOINT))
 
-    outputs = [model.output,
-               model.get_layer('p_class').output,
-               model.get_layer('mu').output,
-               model.get_layer('logits_class').output,
-              ]
-    model = tf.keras.Model(inputs=model.input, outputs=outputs)
-    mu_class = model.get_layer('mu').get_weights()[0][:,0]
-    g = model.get_layer('a').get_weights()[0]
-    a_pred, p_class, mu_pred, logits = model.predict(test_dataset)
-    parameters = {
-        'a_pred': np.maximum(0., a_pred),
-        'a_groundtruth': a_groundtruth,
-        'mu_pred': mu_pred,
-        'p_class': p_class,
-        'mu_class': mu_class
-    }
-    with open('debug.log', 'w') as f:
-        f.write('logits:\n')
-        f.write('p_class:\n')
-        for i in range(p_class.shape[0]):
-            f.write('{}\n{}\n'.format(p_class[i], logits[i]))
-        f.write('\nmu:\n{}\n'.format(mu_pred.T))
-        f.write('\na:\n{}\n'.format(a_pred.T))
-        f.write('\ng:\n{}\n'.format(g.T))
-        f.write('\nmu_class:\n{}\n'.format(mu_class.T))
+        outputs = [model.output,
+                   model.get_layer('p_class').output,
+                   model.get_layer('mu').output,
+                  ]
+        model = tf.keras.Model(inputs=model.input, outputs=outputs)
+        mu_class = model.get_layer('mu').get_weights()[0][:,0]
+        g = model.get_layer('a').get_weights()[0]
+        a_pred, p_class, mu_pred = model.predict(test_dataset)
+        parameters = {
+            'a_pred': np.maximum(0., a_pred),
+            'a_groundtruth': a_groundtruth,
+            'mu_pred': mu_pred,
+            'p_class': p_class,
+            'mu_class': mu_class
+        }
+
+        with open('debug.log', 'w') as f:
+            f.write('p_class:\n')
+            for i in range(p_class.shape[0]):
+                f.write('{}\n'.format(p_class[i]))
+            f.write('\nmu_class:\n{}\n'.format(mu_class.T))
+            f.write('\nmu:\n{}\n'.format(mu_pred.T))
+            f.write('\na:\n{}\n'.format(a_pred.T))
+            f.write('\ng:\n{}\n'.format(g.T))
 
     keypoints = load_keypoints(DIR_DATASET, ramp_surface=ramp_surface)
 
     handle_dataset(video_paths, keypoints, parameters)
 
-    # cv.destroyAllWindows()
+    cv.destroyAllWindows()
