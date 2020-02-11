@@ -115,6 +115,7 @@ def is_in_form_closure(forces, points):
         True/False - whether the forces are in form closure.
     """
     ########## Your code starts here ##########
+    # TODO: Call cone_edges() to construct the F matrix (not necessarily 6 x 7)
     F = np.zeros((6,7))
 
     ########## Your code ends here ##########
@@ -135,6 +136,7 @@ def is_in_force_closure(forces, points, friction_coeffs):
         True/False - whether the forces are in force closure.
     """
     ########## Your code starts here ##########
+    # TODO: Call cone_edges() to construct the F matrix (not necessarily 6 x 7)
     F = np.zeros((6,7))
 
     ########## Your code ends here ##########
