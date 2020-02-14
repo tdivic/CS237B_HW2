@@ -90,7 +90,8 @@ def form_closure_program(F):
         True/False - whether the form closure condition is satisfied.
     """
     ########## Your code starts here ##########
-    # Hint: you may find np.linalg.matrix_rank(F) helpful
+    # Hint: You may find np.linalg.matrix_rank(F) helpful
+    # TODO: Replace the following program (check the cvxpy documentation)
 
     k = cp.Variable(1)
     objective = cp.Minimize(k)
@@ -115,7 +116,7 @@ def is_in_form_closure(forces, points):
         True/False - whether the forces are in form closure.
     """
     ########## Your code starts here ##########
-    # TODO: Call cone_edges() to construct the F matrix (not necessarily 6 x 7)
+    # TODO: Construct the F matrix (not necessarily 6 x 7)
     F = np.zeros((6,7))
 
     ########## Your code ends here ##########
