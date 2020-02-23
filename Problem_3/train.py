@@ -29,10 +29,10 @@ if __name__ == '__main__':
     # Build model
     if args.baseline:
         model = build_baseline_model()
-        path_model = DIR_MODEL + "trained.h5"
+        path_model = DIR_MODEL + "trained_baseline.h5"
     else:
         model = build_model()
-        path_model = DIR_MODEL + "trained_baseline.h5"
+        path_model = DIR_MODEL + "trained.h5"
 
     model.compile(optimizer=tf.keras.optimizers.Adam(LEARNING_RATE),
                   loss=loss)
