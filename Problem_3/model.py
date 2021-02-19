@@ -25,7 +25,7 @@ class AccelerationLaw(tf.keras.layers.Layer):
         mu, th = inputs
 
         ########## Your code starts here ##########
-        a = None  # TODO
+        a = self.g * (tf.math.sin(th) - mu * tf.math.cos(th))
         ########## Your code ends here ##########
 
         # Ensure output acceleration is positive
@@ -58,11 +58,11 @@ def build_model():
     th_input = tf.keras.Input(shape=(1,), name='th')
 
     ########## Your code starts here ##########
-    # TODO: Create your neural network and replace the following two layers
-    #       according to the given specification.
-
-    p_class = tf.keras.layers.Dense(1, name='p_class')(img_input)
-    mu = tf.keras.layers.Dense(1, name='mu')(p_class)
+    # Create my neural network with the proper specifications and some additional layers
+    layer1 = tf.keras.layers.Dense(16, activation='relu')(img_input)
+    layer2 = tf.keras.layers.Dense(32, activation='relu')(layer1)
+    p_class = tf.keras.layers.Dense(32, name='p_class', activation='softmax')(layer2)
+    mu = tf.keras.layers.Dense(32, name='mu')(p_class)
     ########## Your code ends here ##########
 
     a_pred = AccelerationLaw(name='a')((mu, th_input))
@@ -102,7 +102,7 @@ def loss(a_actual, a_pred):
     """
 
     ########## Your code starts here ##########
-    l = None  # TODO
+    l = tf.norm(a_actual - a_pred)
     ########## Your code ends here ##########
 
     return l

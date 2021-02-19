@@ -33,7 +33,7 @@ def wrench(f, p):
     """
     ########## Your code starts here ##########
     # Hint: you may find cross_matrix(x) defined above helpful. This should be one line of code.
-
+    w = np.hstack((f, np.dot(cross_matrix(p), f)))
     ########## Your code ends here ##########
 
     return w
@@ -64,6 +64,14 @@ def cone_edges(f, mu):
         ########## Your code starts here ##########
         edges = [np.zeros(D)] * 2
 
+        # get the perpendicular to our force vector
+        f_perp = np.array([-f[1], f[0]])
+
+        # calculate the first edge
+        edges[0] = f + mu * f_perp / np.linalg.norm(f_perp)
+
+        # calculate the second edge
+        edges[1] = f - mu * f_perp / np.linalg.norm(f_perp)
         ########## Your code ends here ##########
 
     # Spatial wrenches
@@ -71,6 +79,26 @@ def cone_edges(f, mu):
         ########## Your code starts here ##########
         edges = [np.zeros(D)] * 4
 
+        # create a random vector that we will find our first f_perp to
+        rand_vec = np.random.rand(3, 1).flatten()
+
+        # get the first perpendicular vector
+        f_perp = np.dot(cross_matrix(rand_vec), f)
+
+        # get the second perpendicular vector
+        f_perp2 = np.dot(cross_matrix(f), f_perp)
+
+        # get the first edge
+        edges[0] = f + mu * f_perp / np.linalg.norm(f_perp)
+
+        # get the second edge
+        edges[1] = f - mu * f_perp / np.linalg.norm(f_perp)
+
+        # get the third edge
+        edges[2] = f + mu * f_perp2 / np.linalg.norm(f_perp2)
+
+        # get the fourth edge
+        edges[3] = f - mu * f_perp2 / np.linalg.norm(f_perp2)
         ########## Your code ends here ##########
 
     else:
@@ -91,11 +119,15 @@ def form_closure_program(F):
     """
     ########## Your code starts here ##########
     # Hint: You may find np.linalg.matrix_rank(F) helpful
-    # TODO: Replace the following program (check the cvxpy documentation)
+    # first check if F is full rank
+    if np.linalg.matrix_rank(F) != min(F.shape):
+        return False
 
-    k = cp.Variable(1)
-    objective = cp.Minimize(k)
-    constraints = [k >= 0]
+    # Setup the convex optimization problem
+    k = cp.Variable((F.shape[1], 1))
+    ones_vec = np.ones((1, F.shape[1]))
+    objective = cp.Minimize(cp.sum_squares(ones_vec @ k))
+    constraints = [k >= 1, F @ k == 0]
     ########## Your code ends here ##########
 
     prob = cp.Problem(objective, constraints)
@@ -116,8 +148,15 @@ def is_in_form_closure(forces, points):
         True/False - whether the forces are in form closure.
     """
     ########## Your code starts here ##########
-    # TODO: Construct the F matrix (not necessarily 6 x 7)
-    F = np.zeros((6,7))
+    # for each force, construct our wrench
+    wrenches = [wrench(forces[i], points[i]) for i in range(len(forces))]
+
+    # Construct the F matrix of proper dimension
+    F = np.zeros((len(wrenches[0]), len(forces)))
+
+    # add each wrench to a column of F
+    for idx, wr in enumerate(wrenches):
+        F[:, idx] = wr
 
     ########## Your code ends here ##########
 
@@ -137,8 +176,36 @@ def is_in_force_closure(forces, points, friction_coeffs):
         True/False - whether the forces are in force closure.
     """
     ########## Your code starts here ##########
-    # TODO: Call cone_edges() to construct the F matrix (not necessarily 6 x 7)
-    F = np.zeros((6,7))
+    # check if 2D or 3D
+    is_2D = len(forces[0]) == 2
+    # first check number of rows
+    rows = 3 if is_2D else 6
+
+    # then calculate the number of columns assuming all contact points have friction
+    cols = len(forces) * 2 if is_2D else len(forces) * 4
+
+    # then remove 1 columns for every frictionless contact we have if 2D, otherwise remove 3 columns for each
+    scale_factor = 1 if is_2D else 3
+    cols -= sum(mu == 0 for mu in friction_coeffs) * scale_factor
+
+    # Construct the F matrix of proper dimension
+    F = np.zeros((rows, cols))
+
+    # create an iterator
+    curr_col = 0
+
+    # for each force, find the edges
+    for idx, force in enumerate(forces):
+        # get the edges of the force
+        edges = cone_edges(force, friction_coeffs[idx])
+
+        # for each edge, find the wrench
+        for edge in edges:
+            wr = wrench(edge, points[idx])
+
+            # add the wrench to our force matrix
+            F[:, curr_col] = wr
+            curr_col += 1
 
     ########## Your code ends here ##########
 

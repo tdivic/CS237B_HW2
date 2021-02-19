@@ -108,5 +108,50 @@ class TestForceClosure(unittest.TestCase):
         friction_coeffs = [0., 1., 1.]
         self.assertFalse(is_in_force_closure(forces, points, friction_coeffs))
 
+    def test_spatial_force_closure_5(self):
+        # define h, c, and mu
+        h = 0.5
+        c = 0.25
+        mu = 0.51
+        # Grasping a square
+        forces = [np.array([0., 1.]),
+                  np.array([-1., 0.]),
+                  np.array([0, -1])]
+        points = [np.array([0., 0.]),
+                  np.array([c, 1]),
+                  np.array([0.5, h])]
+        friction_coeffs = [mu, 0., 0.]
+        self.assertTrue(is_in_force_closure(forces, points, friction_coeffs))
+
+    def test_spatial_force_closure_6(self):
+        # define h, c, and mu
+        h = 0.5
+        c = 0.25
+        mu = 0.49
+        # Grasping a square
+        forces = [np.array([0., 1.]),
+                  np.array([-1., 0.]),
+                  np.array([0, -1])]
+        points = [np.array([0., 0.]),
+                  np.array([c, 1]),
+                  np.array([0.5, h])]
+        friction_coeffs = [mu, 0., 0.]
+        self.assertFalse(is_in_force_closure(forces, points, friction_coeffs))
+
+    def test_spatial_force_closure_7(self):
+        # define h, c, and mu
+        h = 0.5
+        c = 0.25
+        mu = 0.5
+        # Grasping a square
+        forces = [np.array([0., 1.]),
+                  np.array([-1., 0.]),
+                  np.array([0, -1])]
+        points = [np.array([0., 0.]),
+                  np.array([c, 1]),
+                  np.array([0.5, h])]
+        friction_coeffs = [mu, 0., 0.]
+        self.assertFalse(is_in_force_closure(forces, points, friction_coeffs))
+
 if __name__ == '__main__':
     unittest.main()
